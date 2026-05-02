@@ -1,1 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4D Gallery Pro</title>
 
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: black;
+  color: white;
+}
+
+/* 🔥 HEADER */
+.header {
+  position: relative;
+  text-align: center;
+  padding: 50px 0;
+  overflow: hidden;
+}
+
+/* ⭐ BIG STARS */
+.header::before {
+  content: "";
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, white 3px, transparent 4px);
+  background-size: 80px 80px;
+  animation: starsMove 25s linear infinite, twinkle 2s infinite alternate;
+  opacity: 0.7;
+}
+
+@keyframes starsMove {
+  from { transform: translate(0,0); }
+  to { transform: translate(-300px, -300px); }
+}
+
+@keyframes twinkle {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+/* 🔥 3D TEXT */
+.header h1 {
+  position: relative;
+  font-size: 42px;
+  letter-spacing: 3px;
+
+  text-shadow:
+    0 2px 0 #999,
+    0 4px 0 #888,
+    0 6px 0 #777,
+    0 8px 0 #666,
+    0 12px 25px rgba(0,0,0,0.8);
+
+  animation: glow 2s infinite alternate, float 4s ease-in-out infinite;
+}
+
+@keyframes glow {
+  from { text-shadow: 0 0 10px #ff00cc, 0 0 20px #ff00cc; }
+  to { text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff; }
+}
+
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* CONTROLS */
+.controls { text-align: center; }
+
+button {
+  margin: 5px;
+  padding: 8px 15px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+}
+
+/* GALLERY */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 25px;
+  padding: 20px;
+  perspective: 1500px;
+}
+
+/* 4D CARD */
+.card {
+  position: relative;
+  height: 260px;
+  border-radius: 15px;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  background: #111;
+  transition: transform 0.2s;
+}
+
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translateZ(40px);
+  opacity: 0;
+  transition: 0.3s;
+}
+
+.card img.loaded { opacity: 1; }
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--x,50%) var(--y,50%), rgba(255,255,255,0.3), transparent 60%);
+  opacity: 0;
+}
+
+.card:hover::before { opacity: 1; }
+
+/* DELETE */
+.delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: red;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 2;
+}
+
+/* LIGHTBOX */
+.lightbox {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.95);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+}
+
+.lightbox img {
+  max-width: 85%;
+  max-height: 75%;
+}
+
+/* UPLOAD */
+.upload-box {
+  position: fixed;
+  right: 20px;
+  top: 150px;
+}
+
+#upload { display:none; }
+
+.upload-btn {
+  background: linear-gradient(45deg,#ff00cc,#3333ff);
+  padding: 10px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media(max-width:600px){
+  .gallery { grid-template-columns:1fr; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>🔥 SMART IMAGE GALLERY</h1>
+</div>
+
+<div class="controls">
+  <button onclick="filterImages('all')">🌐All</button>
+  <button onclick="filterImages('nature')">🌿Nature</button>
+  <button onclick="filterImages('city')">🏙️City</button>
+  <button onclick="filterImages('animals')">🐶Animals</button>
+  <button onclick="filterImages('custom')">📂 My Photos</button>
+</div>
+
+<div class="upload-box">
+  <label for="upload" class="upload-btn">📂 Add</label>
+  <input type="file" id="upload" multiple onchange="uploadImages(event)">
+</div>
+
+<div class="gallery" id="gallery"></div>
+
+<div class="lightbox" id="lightbox">
+  <img id="lightImg">
+  <div>
+    <button onclick="prev()">⬅️Prev</button>
+    <button onclick="next()">Next➡️</button>
+    <button onclick="closeBox()">❌Close</button>
+  </div>
+</div>
+
+<div style="text-align:center;padding:10px;">
+Created by Muhammad Usman Jamshed
+</div>
+
+<script>
+let gallery = document.getElementById('gallery');
+let lightbox = document.getElementById('lightbox');
+let lightImg = document.getElementById('lightImg');
+
+let images = [];
+let current = 0;
+let currentFilter = "all";
+
+let data = [];
+
+// UNIQUE IMAGES
+let dataList = [
+["nature","https://images.unsplash.com/photo-1501785888041-af3ef285b470"],
+["nature","https://images.unsplash.com/photo-1470770841072-f978cf4d019e"],
+["nature","https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"],
+["nature","https://images.unsplash.com/photo-1441974231531-c6227db76b6e"],
+["nature","https://images.unsplash.com/photo-1502082553048-f009c37129b9"],
+
+["city","https://images.unsplash.com/photo-1493244040629-496f6d136cc3"],
+["city","https://images.unsplash.com/photo-1492724441997-5dc865305da7"],
+["city","https://images.unsplash.com/photo-1472214103451-9374bd1c798e"],
+["city","https://images.unsplash.com/photo-1508057198894-247b23fe5ade"],
+["city","https://images.unsplash.com/photo-1467269204594-9661b134dd2b"],
+
+["animals","https://images.unsplash.com/photo-1517849845537-4d257902454a"],
+["animals","https://images.unsplash.com/photo-1507149833265-60c372daea22"],
+["animals","https://images.unsplash.com/photo-1444212477490-ca407925329e"],
+["animals","https://images.unsplash.com/photo-1450778869180-41d0601e046e"],
+["animals","https://images.unsplash.com/photo-1517423440428-a5a00ad493e8"]
+];
+
+dataList.forEach(item=>{
+  data.push({src:item[1]+"?auto=format&fit=crop&w=800&q=80",category:item[0]});
+});
+
+// RENDER
+function render(){
+  gallery.innerHTML="";
+  images=[];
+
+  let filtered=data.filter(d=>currentFilter==='all'||d.category===currentFilter);
+
+  filtered.forEach((item,i)=>{
+    let card=document.createElement('div');
+    card.className="card";
+
+    let img=document.createElement('img');
+    img.src=item.src;
+
+    img.onload=()=>img.classList.add("loaded");
+    img.onerror=()=>card.remove();
+
+    card.appendChild(img);
+
+    if(item.category==='custom'){
+      let del=document.createElement('div');
+      del.className="delete-btn";
+      del.innerText="Delete";
+
+      del.onclick=(e)=>{
+        e.stopPropagation();
+        data=data.filter(d=>d.src!==item.src);
+        render();
+      };
+
+      card.appendChild(del);
+    }
+
+    card.onclick=()=>{
+      lightbox.style.display="flex";
+      lightImg.src=item.src;
+      current=i;
+    };
+
+    gallery.appendChild(card);
+    images.push(item.src);
+  });
+}
+
+// FILTER
+function filterImages(cat){
+  currentFilter=cat;
+  render();
+}
+
+// UPLOAD
+function uploadImages(e){
+  let files=e.target.files;
+  for(let f of files){
+    let url=URL.createObjectURL(f);
+    data.push({src:url,category:'custom'});
+  }
+  currentFilter='custom';
+  render();
+}
+
+// NAV
+function next(){
+  current=(current+1)%images.length;
+  lightImg.src=images[current];
+}
+
+function prev(){
+  current=(current-1+images.length)%images.length;
+  lightImg.src=images[current];
+}
+
+function closeBox(){
+  lightbox.style.display="none";
+}
+
+// 4D EFFECT
+document.addEventListener("mousemove",(e)=>{
+  document.querySelectorAll(".card").forEach(card=>{
+    const rect=card.getBoundingClientRect();
+    const x=e.clientX-rect.left;
+    const y=e.clientY-rect.top;
+
+    if(x>0 && x<rect.width && y>0 && y<rect.height){
+      const rx=((y/rect.height)-0.5)*-30;
+      const ry=((x/rect.width)-0.5)*30;
+
+      card.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg) scale(1.05)`;
+      card.style.setProperty('--x',x+'px');
+      card.style.setProperty('--y',y+'px');
+    } else {
+      card.style.transform="rotateX(0) rotateY(0)";
+    }
+  });
+});
+
+render();
+</script>
+
+</body>
+</html>
